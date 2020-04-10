@@ -65,7 +65,21 @@ def Initialise(Dataframe,Shapefile,Adjacencylist,OAframedata,starting_map,OAcol 
 		df = gpd.GeoDataFrame({'wd18cd':df.iloc[:,0],'All Ages':df.iloc[:,1],'constituency':starting_map,'neighbours':df['neighbours'],'geometry':shape['geometry'],'OAs':OAs},geometry='geometry') #Change to df['O']
 
 
-	cons = gpd.GeoDataFrame({'con':starting_map,'geometry':list(df['geometry']),'neighbours':list(df['neighbours']), 'wards':[[x] for x in range(len(df['wd18cd']))],'pop_score':range(len(df['wd18cd'])),'comp_score':range(len(df['wd18cd']))},geometry='geometry')
+	congeom = []
+	for x in range(len(set(starting_map))):
+		x = x+1
+		congeom.append(gpd.GeoSeries(df['geometry'][df.loc[df['constituency'] == x].index.values]).unary_union)
+	if len(set(starting_map)) == len(starting_map):
+		neighs = list(df['neighbours'])
+		wards = [[y] for y in range(len(df['wd18cd']))]
+	else: 
+		neighs = range(len(set(starting_map)))
+		wards = []
+		for x in range(len(set(starting_map))):
+			x = x+1
+			wards.append(df.loc[df['constituency'] == x].index.values)
+
+	cons = gpd.GeoDataFrame({'con':range(len(set(starting_map))),'geometry':congeom,'neighbours':neighs, 'wards':wards,'pop_score':range(len(set(starting_map))),'comp_score':range(len(set(starting_map)))},geometry='geometry')
 
 	return df,cons,OAframe
 
@@ -77,7 +91,23 @@ def relabel_bynumber(mapi): #assgins constituency name to the constituency that 
 	vec = [order.index(x)+1 for x in mapi]
 	return vec
 
+def relabel_bylocation(map1,mapi): #assgins constituency name to the constituency that best matches the original layout. Done via linear assignment
+	matrix = np.full(shape = [len(set(map1)),len(set(map1))], fill_value = +1000)
 
+	for ward in range(len(map1)):
+		matrix[map1[ward]-1][mapi[ward]-1] -= 1 
+
+	row, col = opt.linear_sum_assignment(matrix)
+
+	
+	return [list(col).index(x-1)+1 for x in mapi]
+
+
+def impsample(dist,size):
+	values = [1/float(x[1]) for x in dist] #Requires dist to be in [vec,Gibbs] format
+	a = [x[0] for x in dist]
+	denom = sum(values)
+	return random.choices(a, k=size , weights= [1/(float(x[1])*denom) for x in dist]) #sample from maps with weight 1/Gibbs to make it uniform
 
 
 def MMIcompact(self,condf,ind = None): 
@@ -138,7 +168,6 @@ def MMIcompact(self,condf,ind = None):
 
 
 def Areacompact(self,condf,ind=None):
-	df = self.df
 	if ind == None:
 		return condf
 	for con,i in list(zip(condf['geometry'][ind],ind)):
@@ -177,5 +206,23 @@ def neighbours(Shapefile): #Takes in shapefile and creates adjacency list for wa
 	    writer = csv.writer(f)
 	    for row in neighbours:
 	        writer.writerow(row)
+
+def connected(df,con,start_vertex=None, wardsmet= None): 
+	if len(con) == 0:
+		return False
+	if wardsmet is None: 
+		wardsmet=set()
+	if start_vertex is None:
+		start_vertex = random.choice(con) #Random start vertex if not provided
+	wardsmet.add(start_vertex)
+	if len(wardsmet) != len(con):
+		for h in df['neighbours'][start_vertex]:
+			if h in con and h not in wardsmet:
+				if connected(df,wardsmet=wardsmet,start_vertex=h,con=con):
+					return(True)
+	else:
+		return True
+	return(False)
+
 
 
