@@ -9,21 +9,37 @@ import os
 import itertools
 import time
 import MCMC_functions as MC
+import scipy.stats as sct
 
 class TimeError(Exception):
 	pass
 
 
+
+
+
 ###Rodden Algorithm
+###################
 
 class RoddenChain:
 	Method = 'constructive'
 
-	def __init__(self,df,condf,OAframe,comp,pop_constraint,comp_constraint): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling. 
+	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,comp=None,relabel=None,method=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling. 
 		self.df = df
 		self.OAframe = OAframe
 		self.condf = condf
-		self.comp = comp
+		if comp == 'MMI':
+			self.comp = MC.MMIcompact
+		else:
+			self.comp = MC.Areacompact
+		if relabel == 'bynumber':
+			self.relabel = MC.relabel_bynumber
+		else: 
+			self.relabel = MC.relabel_bylocation
+		if method == 'RoddenWang':
+			self.method = 'RoddenWang'
+		else:
+			self.method = 'Normal'
 		self.pop_constraint = pop_constraint
 		self.comp_constraint = comp_constraint
 
@@ -47,10 +63,8 @@ class RoddenChain:
 				if time.time() - cycle_start > 1800 or time.time() - self.start_time > 7200:
 					raise TimeError("It looks like the chain can't find any more states")
 
-				if self.comp == 'area': #Use compactness measure determined by user
-					 int_cons = MC.Areacompact(self,int_cons,range(len(int_cons)))
-				else:
-					int_cons = MC.MMIcompact(self,int_cons,range(len(int_cons)))
+
+				int_cons = self.comp(self,df,int_cons,range(len(int_cons)))
 
 				if samp == True and any(x > self.comp_constraint for x in int_cons['comp_score']) == False:
 					break
@@ -64,7 +78,7 @@ class RoddenChain:
 					vec.append((y,x))
 			vec = sorted(vec, key=lambda k: k[0])
 			vec = [x[1]+1 for x in vec]
-			dist.append(MC.relabel_bynumber(vec))
+			dist.append([self.relabel(dist,vec),0])
 		return dist
 
 
@@ -92,66 +106,97 @@ def RunRalg(self,con_number):
 		if int_cons['con'].nunique() == con_number: #Break loop when int_constituency number is the desired number (con_number for our reference dist)
 			break
 
-
-	#Second part of Rodden (population evening) - creating maps that meet population int_constraint
-	ind = list(range(len(int_cons['pop_score'])))
-	int_cons = MC.population(self,int_cons,self.avpop,ind)
-
-	Time = time.time()
-	while (sum([1 if abs(x) > self.pop_constraint else 0 for x in int_cons['pop_score']]) != 0):
-		neighdata = []
-		for h in range(len(int_cons['neighbours'])):
-			for i in int_cons['neighbours'][h]:
-				if [i,h] not in neighdata:
-					neighdata.append([h,i])
-		popdiff = []
-		for k in neighdata:
-			popdiff.append(int_cons['pop_score'][k[0]] - int_cons['pop_score'][k[1]])
-		list3 = [abs(x) for x in popdiff]
-		ind = list3.index(max(list3)) #Finds the max All Ages difference
-		if popdiff[ind] < 0: #x is the ward with the bigger All Ages
-			[i,j] = neighdata[ind]
-		else:
-			[j,i] = neighdata[ind]
-
-		swaps = []
-		wards = int_cons.at[j,'wards']
-		for ward in wards:
-			for neigh in int_df['neighbours'][ward]: #Find wards that have neighbours in other int_constituency
-				if neigh in int_cons.at[i,'wards'] and type(gpd.GeoSeries(int_df['geometry'][[x for x in int_cons.at[j,'wards'] if x != ward]]).unary_union) != shapely.geometry.multipolygon.MultiPolygon: #Either got ward not going into ward or some touching error with shapes. 
-					swaps.append(ward)
-					break
-		if len(swaps) == 0: #If can't make a move here, restart
-			return int_cons,False
-
-		jcent = int_cons['geometry'][j].centroid
-		icent = int_cons['geometry'][i].centroid
-		distance = []
-		for ward in swaps:
-			cent = int_df['geometry'][ward].centroid
-			dist1 = icent.distance(cent)
-			dist2 = jcent.distance(cent)
-			distance.append(dist1-dist2)
-		chosenward = swaps[distance.index(min(distance))]
-		int_df.at[chosenward,'constituency'] == int_df['constituency'][int_cons.at[j,'wards'][0]]
-		int_cons.at[i,'wards'] = int_cons.at[i,'wards'] + [chosenward]
-
-
-		int_cons.at[j,'wards'] = [x for x in int_cons.at[j,'wards'] if x != chosenward]
-		int_cons.at[i,'geometry'] = gpd.GeoSeries([int_cons.at[i,'geometry'],int_df.at[chosenward,'geometry']]).unary_union
-		wards = int_cons.at[j,'wards']
-		int_cons.at[[j],'geometry'] = gpd.GeoSeries(int_df['geometry'][wards].tolist()).unary_union
-		ind = [i,j]
+	if self.method == 'RoddenWang':
+			#Second part of Rodden (All Ages evening) - creating maps that meet population int_constraint
+		ind = list(range(len(int_cons['pop_score']))) #Do the pop and comp scores for the new set up, only at this point does it matter.
 		int_cons = MC.population(self,int_cons,self.avpop,ind)
-		int_cons = Rneighbours(self,int_cons)
+		
+		Time = time.time()
+		while any(abs(x) > self.pop_constraint for x in int_cons['pop_score']):
+			constit = [0]*len(df['constituency'])
+			for i,wards in zip(int_cons['con'],int_cons['wards']):
+				for j in wards:
+					constit[j] = i 
+			int_df['constituency'] = constit
 
-		#print(int_cons['wards'])
-		#print(int_cons['pop_score'])
+			Gibbs = 0.2
+			edgeframe = updateedgeframe(int_df)
+			no_cons = 3
+			avpop = sum(int_df['All Ages'])/no_cons
+			b = 10
 
-		if (time.time() - Time) > 30: #Ends search and starts a new one. Necessary due to the deterministic nature of the chain. 
-			return int_cons,False
 
-	return int_cons,True	
+			q = float(0.04)
+			b2 = 1
+			b1 = 1
+			int_df,int_cons,Gibbs = UpdateS(q,b,self.avpop,int_df,edgeframe,int_cons,Gibbs)
+			
+			if (time.time() - Time) > 30: #Ends search and starts a new one. Necessary due to the deterministic nature of the chain. 
+				return int_cons,False
+
+		return int_cons,True	
+
+	else:
+		#Second part of Rodden (population evening) - creating maps that meet population int_constraint
+		ind = list(range(len(int_cons['pop_score'])))
+		int_cons = MC.population(self,int_cons,self.avpop,ind)
+
+		Time = time.time()
+		while (sum([1 if abs(x) > self.pop_constraint else 0 for x in int_cons['pop_score']]) != 0):
+			neighdata = []
+			for h in range(len(int_cons['neighbours'])):
+				for i in int_cons['neighbours'][h]:
+					if [i,h] not in neighdata:
+						neighdata.append([h,i])
+			popdiff = []
+			for k in neighdata:
+				popdiff.append(int_cons['pop_score'][k[0]] - int_cons['pop_score'][k[1]])
+			list3 = [abs(x) for x in popdiff]
+			ind = list3.index(max(list3)) #Finds the max All Ages difference
+			if popdiff[ind] < 0: #x is the ward with the bigger All Ages
+				[i,j] = neighdata[ind]
+			else:
+				[j,i] = neighdata[ind]
+
+			swaps = []
+			wards = int_cons.at[j,'wards']
+			for ward in wards:
+				for neigh in int_df['neighbours'][ward]: #Find wards that have neighbours in other int_constituency
+					if neigh in int_cons.at[i,'wards'] and type(gpd.GeoSeries(int_df['geometry'][[x for x in int_cons.at[j,'wards'] if x != ward]]).unary_union) != shapely.geometry.multipolygon.MultiPolygon: #Either got ward not going into ward or some touching error with shapes. 
+						swaps.append(ward)
+						break
+			if len(swaps) == 0: #If can't make a move here, restart
+				return int_cons,False
+
+			jcent = int_cons['geometry'][j].centroid
+			icent = int_cons['geometry'][i].centroid
+			distance = []
+			for ward in swaps:
+				cent = int_df['geometry'][ward].centroid
+				dist1 = icent.distance(cent)
+				dist2 = jcent.distance(cent)
+				distance.append(dist1-dist2)
+			chosenward = swaps[distance.index(min(distance))]
+			int_df.at[chosenward,'constituency'] == int_df['constituency'][int_cons.at[j,'wards'][0]]
+			int_cons.at[i,'wards'] = int_cons.at[i,'wards'] + [chosenward]
+
+
+			int_cons.at[j,'wards'] = [x for x in int_cons.at[j,'wards'] if x != chosenward]
+			int_cons.at[i,'geometry'] = gpd.GeoSeries([int_cons.at[i,'geometry'],int_df.at[chosenward,'geometry']]).unary_union
+			wards = int_cons.at[j,'wards']
+			int_cons.at[[j],'geometry'] = gpd.GeoSeries(int_df['geometry'][wards].tolist()).unary_union
+			ind = [i,j]
+			int_cons = MC.population(self,int_cons,self.avpop,ind)
+			int_cons = Rneighbours(self,int_cons)
+
+			#print(int_cons['wards'])
+			#print(int_cons['pop_score'])
+
+			if (time.time() - Time) > 30: #Ends search and starts a new one. Necessary due to the deterministic nature of the chain. 
+				return int_cons,False
+
+		return int_cons,True	
+
 
 
 #Finds the neighbours of a constituency by adding ward shapes
@@ -173,20 +218,32 @@ def Rneighbours(self,condf):
 	return condf	
 
 
+
+
+
+
+
+
+
 #### FlipSwap algorithm
+######################
 
 class FlipSwap:
 
 	Method = 'MCMC'
 
-	def __init__(self,df,condf,OAframe,comp,pop_constraint,comp_constraint,alg_type): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
+	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,alg_type,comp=None,relabel=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
 		self.df = df
 		self.OAframe = OAframe
 		self.condf = condf
-		if comp == 'area':
-			self.comp = MC.Areacompact
-		else:
+		if comp == 'MMI':
 			self.comp = MC.MMIcompact
+		else:
+			self.comp = MC.Areacompact
+		if relabel == 'bynumber':
+			self.relabel = MC.relabel_bynumber
+		else: 
+			self.relabel = MC.relabel_bylocation
 		self.pop_constraint = pop_constraint
 		self.comp_constraint = comp_constraint
 		self.alg_type = alg_type
@@ -194,14 +251,13 @@ class FlipSwap:
 		number_cons = len(set(df['constituency']))
 		self.avpop = sum(df['All Ages'])/number_cons
 
-
 	def update(self,df,condf,edgepairs,mlep,b1,b2,E2=None,Gibbs=None): #Tune b1 for map movement (tempering) and b2 for sampling (only compactness)
 	#Updates the chain each time. df: ward data, OAframe: ordiance survey data for compactness, edgepairs: list of proposals, mlep: updated weighting of maximum options from map (needed to normalise sampler)
 	#self.avpop: average population over all constituencies, samp: indicator if population constraint is met, b: tempering coefficient, popconstraint:percentage population constraint, Gibbs:value of Gibbs for the previous map (used in case map is not changed)
 	#Outout = df,edgepairs: general info. samp: whether to keep map in list, Gibbs: Gibbs for new map. 
 
 		if Gibbs == None: #For the initial map only
-			condf = self.comp(self,condf,range(len(condf.index)))
+			condf = self.comp(self,df,condf,range(len(condf.index)))
 			E1 = np.mean(condf['comp_score'])
 			condf = MC.population(self,condf,self.avpop,range(len(condf.index)))
 			E2 = np.mean(condf['pop_score'])
@@ -209,13 +265,13 @@ class FlipSwap:
 			Gibbs = np.exp(-b1*E1-b2*E2)
 
 		##Flip Swap or Random
-		if 'F' == 'F':
+		if self.alg_type == 'F':
 			op1 = 0
 			op2 = Gibbs
-		elif 'F' == 'FS':
+		elif self.alg_type == 'FS':
 			op1 = np.exp(-4.2*E2)
 			op2 = Gibbs
-		elif 'F' == 'R':
+		elif self.alg_type == 'R':
 			op1 = 0
 			op2 = 1
 
@@ -238,7 +294,7 @@ class FlipSwap:
 					break
 			y2 = random.sample(edgepairs2,1)
 			ward,con = y2[0]
-			edgepairscop,dfcop,condfcop,E1cop,E2cop = flip(edgepairscop,dfcop,condfcop,ward,con,self.avpop,b1,b2)
+			edgepairscop,dfcop,condfcop,E1cop,E2cop = flip(self,edgepairscop,dfcop,condfcop,ward,con,b1,b2)
 			Gibbscop = np.exp(-b1*E1cop-b2*E2cop)
 			if random.random() > Gibbs:
 				return df,edgepairs,Gibbs,E2,condf
@@ -284,24 +340,21 @@ class FlipSwap:
 			for i in range(3):
 				for x in condf.at[i,'wards']: #Not all wards present
 					vec[x] = i+1
-			vec = MC.relabel_bynumber(vec) #Do a reassignment of constituencies
+			vec = self.relabel(dist,vec) #Do a reassignment of constituencies
 
 
-
-			if (any(condf['pop_score']>self.pop_constraint) == False) and (any(condf['comp_score']<self.comp_constraint) == False): #Only when desired condition (population) is satisfied
+			if (any(abs(x)>self.pop_constraint for x in condf['pop_score']) == False) and (any(x<self.comp_constraint for x in condf['comp_score']) == False): #Only when desired condition (population) is satisfied
 				accept +=1 
 				#put into format, each index is a ward that corresponds to its index in df and the value is a number of a constituency
 				vec = [0]*len(df['constituency'])
 				for i in range(3):
 					for x in condf.at[i,'wards']: #Not all wards present
 						vec[x] = i+1
-				vec = relabel2(vec) #Do a reassignment of constituencies
+				vec = self.relabel(dist,vec) #Do a reassignment of constituencies
 				dist.append([vec,Gibbs])
-				if vec not in newdist:
-					newdist.append(vec)
 			t += 1
 
-		return(dist,accept/t)
+		return dist
 
 
 
@@ -325,7 +378,7 @@ def flip(self,edgepairs,df,condf,ward,con,b1,b2):
 
 	#Find measures of new swap
 	ind = [ind_c1,ind_c]
-	condfcop = self.comp(self,condfcop,ind)
+	condfcop = self.comp(self,dfcop,condfcop,ind)
 	E1cop = np.mean(condfcop['comp_score'])
 	condfcop = MC.population(self,condfcop,self.avpop,ind)
 	E2cop = np.mean(condfcop['pop_score'])
@@ -350,5 +403,259 @@ def flip(self,edgepairs,df,condf,ward,con,b1,b2):
 			edgepairscop.remove(edge)
 
 	return edgepairscop,dfcop,condfcop,E1cop,E2cop
+
+
+
+
+##Swendsen-Wang Algorithm
+#########################
+
+
+class SwendsenWang:
+	method = 'MCMC'
+
+	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,comp=None,relabel=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
+		self.df = df
+		self.OAframe = OAframe
+		self.condf = condf
+		if comp == 'MMI':
+			self.comp = MC.MMIcompact
+		else:
+			self.comp = MC.Areacompact
+		if relabel == 'bynumber':
+			self.relabel = MC.relabel_bynumber
+		else: 
+			self.relabel = MC.relabel_bylocation
+		self.pop_constraint = pop_constraint
+		self.comp_constraint = comp_constraint
+
+		number_cons = len(set(df['constituency']))
+		self.avpop = sum(df['All Ages'])/number_cons
+	
+
+
+	def Run(self,iterations,q=None,b=None,b1=None,b2=None):
+		df = self.df.copy()
+		condf = self.condf.copy()
+		condf['con'] = [x+1 for x in condf['con']]
+		default_params = [0.04,20,1,5]
+		params = [q,b,b1,b2]
+		self.params = [x if x != None else default_params[i] for x,i in enumerate(params)]
+
+		edgeframe = updateedgeframe(df)
+
+		t = 0 
+		dist = []
+		while t <= iterations:
+			Gibbs = 0.2
+			df,condf,Gibbs = UpdateS(self,df,edgeframe,condf,Gibbs)
+			t +=1
+
+			if (any(abs(x)>self.pop_constraint for x in condf['pop_score']) == False) and (any(x<self.comp_constraint for x in condf['comp_score']) == False):
+				vec = []
+				cons = list(set(df['constituency'].values.tolist()))
+				for x in range(len(df['constituency'])):
+					vec.append(cons.index(df['constituency'][x]))
+				vec = [x+1 for x in vec]
+				dist.append([vec,Gibbs])
+		return dist 
+
+
+
+
+def UpdateS(self,df,edgeframe,condf,Gibbs):
+	q,b,b1,b2 = self.params
+	start_cycle = time.time()
+	tryy = 0
+	while True:
+		edgeframe = updateedgeframe(df,q,edgeframe)
+		Allblocks = blocks(df,edgeframe)
+		bblocks = boundaryblocks(Allblocks,df)
+
+		lim = len(bblocks)
+		while True:
+			while True: #Sample from trunc poisson 
+				R = sct.poisson.rvs(1,size=1)[0]
+				if R != 0 and R <= lim:
+					break
+
+			ans = "Calm" #For connectivity at the bottom
+			r = 0
+			bblockspick = bblocks.copy()
+			selected_blocks = []
+			while r <= R and len(bblockspick) >= 1:
+				ans = "Calm"
+				blocks_wards = [x for bblockspick in selected_blocks for x in bblockspick]
+				chosenblock = random.sample(bblockspick,1)
+				chosenblock = chosenblock[0]
+				bblockspick.remove(chosenblock)
+				for ward in chosenblock:
+					if ans == "Error":
+						break
+					for neigh in df['neighbours'][ward]:
+						if neigh in blocks_wards:
+							ans = "Error"
+							break
+
+				con = condf.at[condf.loc[condf['con'] == df['constituency'][chosenblock[0]]].index[0],'wards'] #Constituency that block is part of
+				if ans != "Error" and MC.connected(df,[x for x in con if x not in chosenblock]): #Initial check. 
+					interiors = []
+					for interior in gpd.GeoSeries(df['geometry'][[x for x in con if x not in chosenblock]]).unary_union.interiors:
+						interiors.append(list(interior.coords))
+					if interiors == []:
+						selected_blocks.append(chosenblock)
+						r +=1
+			if r >= R:
+				cont = True
+				break
+			if tryy >= 7:
+				cont = False
+				break
+			tryy += 1
+		if cont:
+			break
+
+
+	#Proposal
+	dfcop = df.copy()
+	condfcop = condf.copy()
+	changed_cons = []
+	for block in selected_blocks:
+		options = set()
+		for ward in block:
+			for neigh in dfcop['neighbours'][ward]:
+				if dfcop['constituency'][ward] != dfcop['constituency'][neigh]:
+					options.add(dfcop['constituency'][neigh])
+		choice = random.sample(options,1)
+		changed_cons = changed_cons + dfcop['constituency'][block].tolist() + choice
+		dfcop.loc[block,'constituency'] = choice
+
+	for con in set(changed_cons):
+		ind_w = dfcop.loc[dfcop['constituency'] == con].index.values.tolist()
+		condfcop.at[condfcop.loc[condfcop['con'] == con].index[0],'wards'] = ind_w
+	ind = condfcop.loc[condfcop['con'].isin(changed_cons)].index.values
+
+	#Accepting
+	oldprop = len(bblocks)
+	bblocks2 = boundaryblocks(Allblocks,dfcop)
+	newprop = len(bblocks2)
+
+
+	f_oldprop = sct.poisson.cdf(oldprop,1)
+	f_newprop = sct.poisson.cdf(newprop,1)
+
+
+	boundaryedge = [0,0]
+	for i in range(2): #Counts Gibbs of edges that cross boundary for each map
+		mydf = [df,dfcop][i]
+		for edge in range(len(edgeframe['node1'])):
+			if mydf['constituency'][edgeframe['node1'][edge]] != mydf['constituency'][edgeframe['node2'][edge]]:
+				boundaryedge[i] +=1
+
+
+	ind = list(ind)
+	condfcop = self.comp(self,dfcop,condfcop,ind)
+	condfcop = MC.population(self,condfcop,self.avpop,ind)
+
+	E1new = np.mean(condfcop['comp_score'])
+	E2new = np.mean([abs(x) for x in condfcop['pop_score']])
+	E1old = np.mean(condf['comp_score'])
+	E2old = np.mean([abs(x) for x in condf['pop_score']])
+
+
+	#Accept with this prob
+	Gibbscop = min(1,(1-q)**(boundaryedge[1]-boundaryedge[0])*(oldprop/newprop)**(R)*(f_oldprop/f_newprop)*np.exp(-b*(b2*E2new+b1*E1new)+b*(b2*E2old+b1*E1old)))
+
+	if random.random() < Gibbscop:
+		return dfcop,condfcop,Gibbscop
+	
+
+	return df,condf,Gibbs
+
+
+#Running
+def updateedgeframe(df,q=None,edgeframe=None):
+	if edgeframe is None:
+		edgelist1 = []
+		edgelist2 = []
+		edgelist = []
+		for ward in range(len(df['neighbours'])):
+			for neigh in df['neighbours'][ward]:
+				if [neigh,ward] not in edgelist:
+					edgelist1.append(ward)
+					edgelist2.append(neigh)
+					edgelist.append([ward,neigh])
+		edgeframe = pd.DataFrame({'node1':edgelist1,'node2':edgelist2,'on':range(len(edgelist))})
+
+	else:
+		for edge in range(len(edgeframe['node1'])):
+			ward1,ward2 = [edgeframe['node1'][edge],edgeframe['node2'][edge]]
+			if random.random() <= q and df['constituency'][ward1] == df['constituency'][ward2]:
+				edgeframe['on'][edge] = 1
+			else:
+				edgeframe['on'][edge] = 0
+	return(edgeframe)
+
+
+def boundary(df):
+	boundary = set()
+	for i in range(len(df['wd18cd'])):
+		for n in df['neighbours'][i]:
+			if df['constituency'][n] != df['constituency'][i]:
+				boundary.add(i)
+	return(boundary)
+
+
+
+
+def blocksold(edgeframe):
+	block = []
+	for ward in range(len(df['constituency'])):
+		wardsdone = []
+		block_ward = set()
+
+		while len(wardsdone) != len(block_ward):
+			current_ward = wardsleft[0]
+			block_ward.add(current_ward)
+			for edge in range(len(edgeframe['node2'])):
+				if edgeframe['node1'][edge] == current_ward and edgeframe['on'][edge] == 1:
+					block_ward.add(edgeframe['node2'][edge])
+			wardsleft = [x for x in wardsleft if x != current_ward]
+
+		block.append(list(block_ward))
+	return(block)
+
+
+def blocks(df,edgeframe):
+	block = []
+	uniwardsdone = []
+	for ward in range(len(df['constituency'])):
+		if ward not in uniwardsdone:
+			wardsdone = []
+			block_ward = set()
+			block_ward.add(ward)
+			while len(wardsdone) != len(block_ward):
+				current_ward = [x for x in block_ward if x not in wardsdone][0]
+				for edge in range(len(edgeframe['node2'])):
+					if edgeframe['node1'][edge] == current_ward and edgeframe['on'][edge] == 1:
+						block_ward.add(edgeframe['node2'][edge])
+					elif edgeframe['node2'][edge] == current_ward and edgeframe['on'][edge] == 1:
+						block_ward.add(edgeframe['node1'][edge])
+				wardsdone.append(current_ward)
+			block.append(list(block_ward))
+			uniwardsdone = uniwardsdone + wardsdone
+	return(block)
+
+
+
+def boundaryblocks(Allblocks,df):
+	bblocks = []
+	boundaryy = boundary(df)
+	for block in Allblocks:
+		for ward in block:
+			if ward in boundaryy:
+				bblocks.append(block)
+				break
+	return(bblocks)
 
 

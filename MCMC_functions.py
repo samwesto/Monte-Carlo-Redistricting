@@ -8,6 +8,9 @@ import shapely
 import os
 import itertools
 import time
+import cvxpy as cp
+import scipy.optimize as opt
+from itertools import product
 
 
 def Initialise(Dataframe,Shapefile,Adjacencylist,OAframedata,starting_map,OAcol = False): #Builds the two data frames from ready made files.
@@ -27,7 +30,7 @@ def Initialise(Dataframe,Shapefile,Adjacencylist,OAframedata,starting_map,OAcol 
 	if any(type(x) not in [str,int,] for x in df.iloc[:,0]):
 		raise TypeError('ward codes was not a string or int')
 
-	starting_map = relabel_bynumber(starting_map) #Make numeric
+	starting_map = relabel_bynumber([],starting_map) #Make numeric
 
 
 	#Add adjlist to df
@@ -86,12 +89,18 @@ def Initialise(Dataframe,Shapefile,Adjacencylist,OAframedata,starting_map,OAcol 
 
 
 
-def relabel_bynumber(mapi): #assgins constituency name to the constituency that best matches the original layout. Done via linear assignment
+####Sorting and distributing
+############################
+
+def relabel_bynumber(dist,mapi): #assgins constituency name to the constituency that best matches the original layout. Done via linear assignment
 	order = sorted(set(mapi), key=mapi.index)
 	vec = [order.index(x)+1 for x in mapi]
 	return vec
 
-def relabel_bylocation(map1,mapi): #assgins constituency name to the constituency that best matches the original layout. Done via linear assignment
+def relabel_bylocation(dist,mapi): #assgins constituency name to the constituency that best matches the original layout. Done via linear assignment
+	if dist == []:
+		return mapi
+	map1 = dist[0][0]
 	matrix = np.full(shape = [len(set(map1)),len(set(map1))], fill_value = +1000)
 
 	for ward in range(len(map1)):
@@ -109,6 +118,10 @@ def impsample(dist,size):
 	denom = sum(values)
 	return random.choices(a, k=size , weights= [1/(float(x[1])*denom) for x in dist]) #sample from maps with weight 1/Gibbs to make it uniform
 
+
+
+###Metrics
+##########
 
 def MMIcompact(self,condf,ind = None): 
 	#Uses moments of inertia, weighted by population
@@ -167,11 +180,12 @@ def MMIcompact(self,condf,ind = None):
 	return condf
 
 
-def Areacompact(self,condf,ind=None):
+def Areacompact(self,df,condf,ind=None):
 	if ind == None:
 		return condf
-	for con,i in list(zip(condf['geometry'][ind],ind)):
-		condf.at[i,'comp_score'] = (4*np.pi*con.area)/(con.length**2)
+	for i in ind:
+		con = df.loc[condf.loc[i,'wards'],['geometry']].unary_union
+		condf.loc[i,'comp_score'] = (4*np.pi*con.area)/(con.length**2)
 	return condf
 
 
@@ -185,6 +199,90 @@ def population(self,condf,avpop,ind = None): #returns non abs value
 	for i in ind:
 		condf.loc[i,'pop_score'] = (sum(df['All Ages'][condf.at[i,'wards']]) - avpop)/avpop
 	return condf
+
+
+
+
+####Wasserstein distance
+########################
+def Vmatrix(refdist,i,j):
+	if len(refdist) < max(i,j)+1:
+		raise ValueError('Requires ' +str(max(i,j)+1) + ' or more maps to calculate this distance')
+	Allparts = []
+	refdist = [x[0] for x in refdist]
+	for redist in refdist:
+		V = np.array([range(len(redist))]).transpose() #Creates dummy first column to append to
+		for y in range(1,len(set(redist))+1): #For each district, shift all numbers by +1 due to R indexing start at 1
+			v = np.array([[1 if ele == y else 0 for ele in redist]]) #Create district vector where value is an indicator if ward is in that discrict: vi, i,..,k
+			V = np.concatenate([V,np.divide(v,sum(v[0])).transpose()],axis=1) #Normalise and append vector to V
+		V = V[:,1:] #Remove first column from matrix V
+		Allparts.append(V) 
+	return Allparts
+
+
+#Indicdent matrix
+def Imatrix(df):
+	#Generate edge list
+	edgelist = []
+	for ward in range(len(df['neighbours'])):
+		for neigh in df['neighbours'][ward]:
+			if [neigh,ward] not in edgelist:
+					edgelist.append([ward,int(neigh)])
+
+	in_matrix = np.array([range(len(edgelist))])
+	for x in range(len(df.index)):
+		in_row = np.array([[1 if x in edge else 0 for edge in edgelist]])
+		in_matrix = np.concatenate([in_matrix,in_row],axis=0)
+	in_matrix = in_matrix[1:,:]
+
+	return in_matrix
+
+def distance(a_indicator, b_indicator,edge_incidence): #elements taken from Github - https://github.com/vrdi/optimal-transport/blob/master/wasserplan.py
+	n_edges = edge_incidence.shape[1]
+	edge_weights = cp.Variable(n_edges)
+	diff = b_indicator - a_indicator
+	objective = cp.Minimize(cp.sum(cp.abs(edge_weights)))
+	conservation = (edge_incidence @ edge_weights) == diff
+	prob = cp.Problem(objective, [conservation])
+	prob.solve(solver='ECOS') 
+	return np.sum(np.abs(edge_weights.value))
+
+
+def pairwise_d(no_districts,Allparts,P,district1,district2):
+	dist = np.zeros((no_districts,no_districts))
+	for ina in range(no_districts):
+		for inb in range(no_districts):
+			dis = distance(Allparts[district1][:,ina],Allparts[district2][:,inb],P)
+			dist[ina][inb] = dis
+	return dist
+
+
+def partdistance(no_districts,Allparts,P,district1,district2):
+	distances = pairwise_d(no_districts,Allparts,P,district1,district2)
+	inda, indb = opt.linear_sum_assignment(distances)
+
+	chosenones  = {a_in: b_in 
+	for a_in, b_in in zip(inda,indb)}
+
+	total_dist = 0
+	for a_in, b_in in chosenones.items():
+		total_dist += distances[a_in][b_in]
+
+	return total_dist
+
+def LWasserstein(adjlist,refdist,i,j): #Recommend using sklearn.manifold.MDS for embedding into euclidean space. 
+	Allparts = Vmatrix(refdist,i,j)
+	P = Imatrix(adjlist)
+
+	no_districts = Allparts[0].shape[1]
+	return partdistance(no_districts,Allparts,P,i,j)
+
+
+
+
+
+#Ward relationships
+###################
 
 
 def neighbours(Shapefile): #Takes in shapefile and creates adjacency list for wards, saving it in the Data folder. 
