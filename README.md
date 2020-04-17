@@ -12,24 +12,32 @@ numpy, fiona, random, geopandas, csv, shapely, itertools, scipy, cvxpy
 ### Required Data
 The data input type is modelled around what is available from the Office of National Statistics. Any data source can be used however, lookup tables and data sets from the ONS will be already be in the correct format.
 
-#### Required filed
+#### Required files
+Within the folder data, there is an example for each one of these require data types, pertaining to the wards of the West Midlands. 
+
+
 Main Dataframe - df
 Type: Pandas DataFrame
-Columns (must be in the following order):  unique ward code, ward population, 
+Columns (must be in the following order):  unique ward code, ward population
 
-OAframe
-Type: Dataframe
-Columns (in the following order): unique OA code, population, ward that contains OA area
-
-Adjacency lists:
-Type: csv files with each row containing a list of ward (OA) index numbers for df (OAframe), such that each column is a separate number. 
-ward neighbours,* OAs**. 
-
-Shape file
+Shape file - shapefile
 Type: .shp
-Column: a column named ‘geometry’ with ward shape data in, must be shapely polygons.
+Column: a column named ‘geometry’ with ward shape data in, must be type shapely polygons. The data must be in the same order as the data in df.
+
+Ordinance Survey Area data - OAframe (optional: only for use with MMI compactness)
+Type: Dataframe
+Columns (in the following order): unique OA code, population, ward code that contains OA area
+
+Ward Adjacency lists - adjlist
+Type: csv 
+File with each row containing a list of df index numbers corresponding to wards that are adjacent geographically. The file should be structured such that each row features information about a single ward and each column contains a index. This file can be created using the function neighbours in MCMC_functions.py, if provided with the ward shape file. 
+
+OA ward relationships - OAcol
+type: csv 
+File with each row containing a list of unique OA codes corresponding to OAs that are contained inside a specific ward (corresponding to that row). The file should be structured such that each row features information about a single ward and each column contains a unique OA code. This file can be created using the function OAcol in MCMC_functions.py, if provided with the OAdataframe. 
 
 
-*Neighbours = all wards that are adjacent to the given ward, measured by touching edges. If you do not have this information, use function neighbours in MC. 
-** OAs = list of OA areas contained inside this ward. If not available use argument OAs = None. You will then be restricted to the use of Area compactness only.
+* If data relating to OA areas (OAcol and OAframe) is not available, or the user does not want to use MMI compactness, these files can be omitted. All MCMC algorithms will not require these files by default. 
+
+##Running the algorithms
 
