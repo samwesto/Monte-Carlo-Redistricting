@@ -24,11 +24,11 @@ class TimeError(Exception):
 class RoddenChain:
 	Method = 'constructive'
 
-	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,comp=None,relabel=None,method=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling. 
+	def __init__(self,df,condf,pop_constraint,comp_constraint,comp=None,relabel=None,method=None,OAframe=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling. 
 		self.df = df
-		self.OAframe = OAframe
 		self.condf = condf
 		if comp == 'MMI':
+			self.OAframe = OAframe
 			self.comp = MC.MMIcompact
 		else:
 			self.comp = MC.Areacompact
@@ -232,11 +232,11 @@ class FlipSwap:
 
 	Method = 'MCMC'
 
-	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,alg_type,comp=None,relabel=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
+	def __init__(self,df,condf,pop_constraint,comp_constraint,alg_type,comp=None,relabel=None,OAframe=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
 		self.df = df
-		self.OAframe = OAframe
 		self.condf = condf
 		if comp == 'MMI':
+			self.OAframe = OAframe
 			self.comp = MC.MMIcompact
 		else:
 			self.comp = MC.Areacompact
@@ -414,12 +414,12 @@ def flip(self,edgepairs,df,condf,ward,con,b1,b2):
 class SwendsenWang:
 	method = 'MCMC'
 
-	def __init__(self,df,condf,OAframe,pop_constraint,comp_constraint,comp=None,relabel=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
+	def __init__(self,df,condf,pop_constraint,comp_constraint,comp=None,relabel=None,OAframe=None): #df = main ward data, OAframe = OA area for MMI compactness, comp = area or MMI depending on compactness measure, pop and comp constraints are numeric bounds for sampling, alg_type = F, FS or R for flip, flip and swap or random sampler.
 		self.df = df
-		self.OAframe = OAframe
 		self.condf = condf
 		if comp == 'MMI':
 			self.comp = MC.MMIcompact
+			self.OAframe = OAframe
 		else:
 			self.comp = MC.Areacompact
 		if relabel == 'bynumber':
