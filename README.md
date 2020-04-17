@@ -116,4 +116,10 @@ Returns a list of tuples. In each tuple the first element, element 1, is a vecto
 ## Performance
 In this section I demonstrate the use of all the algorithms described above and provide evidence of the superior performance of my modifications. 
 
+In the following figure I show the convergence to a uniform distribution for the two methods FlipSwap and Flip. The y axis shows the frequency the map that is found by the algorithm the least, divided by the frequency of the map that is found the most. This measure converges to 1 as the distribution of maps converges to uniform. The x axis shows the iteration number t. 
+It can be see that the FlipSwap demonstrates better convergence toward the desired unfiorm distribution over 20,000 iterations. 
+
+FlipSwap Convergence | Flip Convergence
+:--------------------:|:--------------------:
+![FS Convergence](FSconverg.png)|![F Convergence](Fconv.png)
 
