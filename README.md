@@ -1,7 +1,7 @@
 # Monte Carlo for Redistricting
 There have been numerous attempts to apply Monte Carlo techniques to quanitfy the process of political redistricting in the United States. Due to the need for extensive optimisation and the lack of a 
 one size fits all approach, previous methods do not translate well to the UK. In the following project, I have implemented a number of popular techniques to this end, making them applicable to the structure of the UK electoral system. 
-More than this, I have created new algorithms that perform better than those existing when applied to the UK. 
+Building upon this, I have created new algorithms that perform better under our system than existing mdoels.
 
 ## Getting started 
 
