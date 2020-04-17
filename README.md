@@ -46,12 +46,19 @@ The structure of the flip algorithm is modelled on several existing algorithms, 
 
 #### Arguements
 df: the dataframe with the same name produced by the function initialise. 
+
 condf: the dataframe with the same name produced by the function initialise.
-pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate
-comp_constraint: a decimal float that corresponds to the minimum compactness score the algorithm will tolerate 
+
+pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate.
+
+comp_constraint: a decimal float that corresponds to the minimum compactness score the algorithm will tolerate.
+
 alg_type: 'R', 'F' or 'FS' for Random, Flip or FlipSwap as described in the section FlipSwp above. 
+
 comp (default 'area'): 'area' or 'MMI' depending on whether an area compactness metric or 'MMI' compactness metric is desired. If 'MMI' the OA data OAcol and OAframe are required. 
+
 relabel (default 'by location'): 'bynumber' or 'bylocation' depending on which way the output should be labelled. By number relabels constituencies numerically in order of appear in the vector, bylocation orders them with respect to the first map presented to that constituency movement is minimised. 
+
 OAframe (default None): the OAframe data that is produced by the function initialise and is required for MMI compactness.
 
 #### Output
@@ -62,13 +69,19 @@ Returns a list of tuples. In each tuple the first element, element 1, is a vecto
 The Swendsen-Wang algorithm is based on a modification of the original Swendsen-Wang algorithm, described by Fifield in his paper: https://imai.fas.harvard.edu/research/files/redist.pdf. The process starts from a given map and through the process of picking edges at random changes the constituency assignment of multiple wards at a time.
 
 #### Arguements
-df: the dataframe with the same name produced by the function initialise. 
+df: the dataframe with the same name produced by the function initialise.
+
 condf: the dataframe with the same name produced by the function initialise.
-pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate
+
+pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate.
+
 comp_constraint: a decimal float that corresponds to the minimum compactness score the algorithm will tolerate 
 alg_type: 'R', 'F' or 'FS' for Random, Flip or FlipSwap as described in the section FlipSwp above. 
+
 comp (default 'area'): 'area' or 'MMI' depending on whether an area compactness metric or 'MMI' compactness metric is desired. If 'MMI' the OA data OAcol and OAframe are required. 
+
 relabel (default 'by location'): 'bynumber' or 'bylocation' depending on which way the output should be labelled. By number relabels constituencies numerically in order of appear in the vector, bylocation orders them with respect to the first map presented to that constituency movement is minimised. 
+
 OAframe (default None): the OAframe data that is produced by the function initialise and is required for MMI compactness.
 
 #### Output
@@ -80,14 +93,27 @@ A constructive algorithm proposed by Chen and Rodden, available at http://citese
 
 #### Arguements
 df: the dataframe with the same name produced by the function initialise. 
+
 condf: the dataframe with the same name produced by the function initialise.
-pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate
+
+pop_constraint: a decimal float that corresponds to the percentage deviance from the mean population the redistricting will tolerate.
+
 comp_constraint: a decimal float that corresponds to the minimum compactness score the algorithm will tolerate 
 alg_type: 'R', 'F' or 'FS' for Random, Flip or FlipSwap as described in the section FlipSwp above. 
+
 comp (default 'area'): 'area' or 'MMI' depending on whether an area compactness metric or 'MMI' compactness metric is desired. If 'MMI' the OA data OAcol and OAframe are required. 
+
 relabel (default 'by location'): 'bynumber' or 'bylocation' depending on which way the output should be labelled. By number relabels constituencies numerically in order of appear in the vector, bylocation orders them with respect to the first map presented to that constituency movement is minimised. 
+
 method (default 'Normal'): 'Normal' or 'RoddenWang', this dictates which procedure the second part of the algorithm follows. 
+
 OAframe (default None): the OAframe data that is produced by the function initialise and is required for MMI compactness.
 
 #### Output
 Returns a list of tuples. In each tuple the first element, element 1, is a vector which describes the assignment of the wards: the index of each element in the list corresponds to the index of a ward in df and the value corresponds to the numeric code of a constituency. In order to maintain consistency of output, a second element, element 2, is provided but the value is meaningless.
+
+
+## Performance
+In this section I demonstrate the use of all the algorithms described above and provide evidence of the superior performance of my modifications. 
+
+
