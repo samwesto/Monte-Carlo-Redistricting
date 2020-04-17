@@ -21,7 +21,7 @@ Columns (must be in the following order):  unique ward code, ward population
 Type: .shp
 Column: a column named ‘geometry’ with ward shape data in, must be type shapely polygons. The data must be in the same order as the data in df.
 
-#### Ordinance Survey Area data - OAframe (optional: only for use with MMI compactness)
+#### Ordinance Survey Area data - OAframe
 Type: Dataframe
 Columns (in the following order): unique OA code, population, ward code that contains OA area
 
@@ -34,7 +34,8 @@ type: csv
 File with each row containing a list of unique OA codes corresponding to OAs that are contained inside a specific ward (corresponding to that row). The file should be structured such that each row features information about a single ward and each column contains a unique OA code. This file can be created using the function OAcol in MCMC_functions.py, if provided with the OAdataframe. 
 
 
-* If data relating to OA areas (OAcol and OAframe) is not available, or the user does not want to use MMI compactness, these files can be omitted. All MCMC algorithms will not require these files by default. 
+#### NOTE: 
+If data relating to OA areas (OAcol and OAframe) is not available, or the user does not want to use MMI compactness, these files can be omitted. All MCMC algorithms will not require these files by default. 
 
 ## Running the algorithms
 
