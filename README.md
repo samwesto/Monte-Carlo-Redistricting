@@ -170,4 +170,4 @@ A given number of overly dispersed maps
 
 ![Starting Points](RoddenStartingPs.png)
 
-The figure above shows the selection of 5 overly dispersed maps. Each point represents a map embedding in euclidean space. 
+The figure above shows the selection of 5 overly dispersed maps. Each point represents a map embedded in euclidean space. 
