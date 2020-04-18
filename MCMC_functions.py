@@ -280,6 +280,25 @@ def LWasserstein(adjlist,refdist,i,j): #Recommend using sklearn.manifold.MDS for
 
 
 
+def Starting_points(adjlist,refdist,num):
+	inx = random.sample(list(range(len(redist))),min(100,len(redist))) #Sample from all points
+	j = random.choice(inx) #first point
+
+	refdist = [refdist[i] for i in inx]
+	Allparts = Vmatrix(refdist,i,j)
+	P = Imatrix(adjlist)
+	no_districts = Allparts[0].shape[1]
+	matrixx = np.zeros((len(Allparts),len(Allparts)))
+	list1 = product(range(len(Allparts)),range(len(Allparts)))
+	for i, ii in list1:
+			matrixx[i][ii] = (partdistance(no_districts,Allparts,P,i,ii))
+
+	points = [j]
+	for k in range(num):
+		points.append(list(matrixx[points][:].mean(0)).index(max(matrixx[points][:].mean(0))))
+
+	maps = [refdist[inx[g]] for g in points]
+	return maps
 
 #Ward relationships
 ###################
