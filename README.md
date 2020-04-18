@@ -39,12 +39,16 @@ If data relating to OA areas (OAcol and OAframe) is not available, or the user d
 
 ## Running the algorithms
 
+%GIF of all the algorithms running on a map
+%Complete Rodden RoddenWang comparison
+%Check code working RoddenWang and starting points
+
 ### FlipSwap
-This algorithm is a basic boundary altering MCMC that changes the electoral layout by reassigning wards between constituencies. There are three different modes: Random, FlipSwap and Flip. Random selects a ward at random each iteration and changes its constituency assignment with probability one. Flip does the same procedure but changes the assignment with a probability based upon the Gibbs distribution. At each iteration, FlipSwap either runs the Flip algorithm with probability, p, based upon the population energy from iteration t-1, or with 1-p it runs the Random algorithm and then makes a counter swap, where a ward from the constituency W has just been assigned to is assinged to the constituency that W was previously assinged to. This combination of two flips is then accepted with a probability based on the Gibbs distribution, otherwise neither flip is made. The combination of two flips is called a swap, hence the name FlipSwap. 
+This algorithm is a basic boundary altering MCMC that changes the electoral layout by reassigning wards between constituencies. There are three different modes: Random, FlipSwap and Flip. Random selects a ward at random each iteration and changes its constituency assignment with probability one. Flip does the same procedure but changes the assignment with a probability based upon the Gibbs distribution. At each iteration, FlipSwap either runs the Flip algorithm with probability, p, based upon the population energy from iteration t-1, or with 1-p it runs the Random algorithm and then makes a counter swap, where a ward from the constituency W has just been assigned to is assigned to the constituency that W was previously assigned to. This combination of two flips is then accepted with a probability based on the Gibbs distribution, otherwise neither flip is made. The combination of two flips is called a swap, hence the name FlipSwap. 
 
 The structure of the flip algorithm is modelled on several existing algorithms, notably one proposed by Chikina, available at: https://www.pnas.org/content/114/11/2860. I believe the addition of a conditional swap is a novel contribution and will not be found outside this package. Please see the Performance section below for comparisons between the methods.
 
-#### Arguements
+#### Arguments
 df: the dataframe with the same name produced by the function initialise. 
 
 condf: the dataframe with the same name produced by the function initialise.
@@ -68,7 +72,7 @@ Returns a list of tuples. In each tuple the first element, element 1, is a vecto
 ### Swendsen-Wang
 The Swendsen-Wang algorithm is based on a modification of the original Swendsen-Wang algorithm, described by Fifield in his paper: https://imai.fas.harvard.edu/research/files/redist.pdf. The process starts from a given map and through the process of picking edges at random changes the constituency assignment of multiple wards at a time.
 
-#### Arguements
+#### Arguments
 df: the dataframe with the same name produced by the function initialise.
 
 condf: the dataframe with the same name produced by the function initialise.
@@ -89,9 +93,9 @@ Returns a list of tuples. In each tuple the first element, element 1, is a vecto
 
 
 ### Rodden
-A constructive algorithm proposed by Chen and Rodden, available at http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.397.5148&rep=rep1&type=pdf. The method starts from the unique map where each ward belongs to a single constituency. It then combines wards using a certain degree of randomness until there are a given number of constituencies. This initial process is followed by a deterministic process that aims to even out the populations between the constituencies, in order to statisfy population and compactness constraints. I have developed a modification to this process, where by the second stage of the algorithm, formly a deterministic "evening" procedure, is replace by the Swendsen-Wang method, detailed above.
+A constructive algorithm proposed by Chen and Rodden, available at http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.397.5148&rep=rep1&type=pdf. The method starts from the unique map where each ward belongs to a single constituency. It then combines wards using a certain degree of randomness until there are a given number of constituencies. This initial process is followed by a deterministic process that aims to even out the populations between the constituencies, in order to satisfy population and compactness constraints. I have developed a modification to this process, where by the second stage of the algorithm, formally a deterministic "evening" procedure, is replace by the Swendsen-Wang method, detailed above.
 
-#### Arguements
+#### Arguments
 df: the dataframe with the same name produced by the function initialise. 
 
 condf: the dataframe with the same name produced by the function initialise.
@@ -119,14 +123,14 @@ Returns a list of tuples. In each tuple the first element, element 1, is a vecto
 In this section I demonstrate the use of all the algorithms described above and provide evidence of the superior performance of my modifications. 
 
 In the following figure I show the convergence to a uniform distribution for the two methods FlipSwap and Flip. The y axis shows the frequency the map that is found by the algorithm the least, divided by the frequency of the map that is found the most. This measure converges to 1 as the distribution of maps converges to uniform. The x axis shows the iteration number t. 
-It can be see that the FlipSwap demonstrates better convergence toward the desired unfiorm distribution over 20,000 iterations. 
+It can be see that the FlipSwap demonstrates better convergence toward the desired uniform distribution over 20,000 iterations. 
 
 FlipSwap Convergence | Flip Convergence | Swendsen-Wang Convergence
 :--------------------:|:--------------------:|:------------------:
 ![FS Convergence](FSconverg.png)|![F Convergence](Fconv.png)|![SW Convergence](Wangconv20.png)
 
 ### Constructive Algorithms
-I demonstrate the advantages of the RoddenWang modification, in comparison with the original proposal by Chen and Wang. Below we have maps in organge generated by the Rodden Algorithm with RoddenWang turned on. These are placed alongside maps in blue that are sampled randomly from the distribution of all maps. In this graph the distance between maps is a euclidean distance. It can be seen that the RoddenWang is generating maps that are well dispersed and representative of the whole space.
+I demonstrate the advantages of the RoddenWang modification, in comparison with the original proposal by Chen and Wang. Below we have maps in orange generated by the Rodden Algorithm with RoddenWang turned on. These are placed alongside maps in blue that are sampled randomly from the distribution of all maps. In this graph the distance between maps is a euclidean distance. It can be seen that the RoddenWang is generating maps that are well dispersed and representative of the whole space.
 
 RoddenWang | 
 :--------------------:|
@@ -137,7 +141,7 @@ RoddenWang |
 ### Distance 
 Takes a distribution list and calculates a pairwise lifted Wasserstein distance between any two of the maps. 
 
-#### Arguements
+#### Arguments
 adjlist: the adjacency relations between wards, sufficient to provide df['neighbours']. 
 
 refdist: the distribution list that is output by one of the MCMC chains and contains the maps from which you wish to measure distance.
@@ -152,9 +156,9 @@ A pairwise distance between two maps
 
 
 ### Starting Points
-Using lifted Wasserstein distance embedded in a euclidean space, the algorithm finds a given number of dispered points from a given list distribution. This is a recommended method for generating starting points. For this purpose we recommned the Rodden Algorithm and its variate since they generate independent maps. 
+Using lifted Wasserstein distance embedded in a euclidean space, the algorithm finds a given number of dispersed points from a given list distribution. This is a recommended method for generating starting points. For this purpose we recommend the Rodden Algorithm and its variate since they generate independent maps. 
 
-#### Arguements
+#### Arguments
 adjlist: the adjacency relations between wards, sufficient to provide df['neighbours']. 
 
 refdist: the distribution list that is output by one of the MCMC chains and contains the maps from which you wish to measure distance.
@@ -162,7 +166,7 @@ refdist: the distribution list that is output by one of the MCMC chains and cont
 num: the number of maps to be returned
 
 #### Output
-A given number of overly dispered maps
+A given number of overly dispersed maps
 
 ![Starting Points](RoddenStartingPs.png)
 
