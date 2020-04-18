@@ -1,5 +1,5 @@
 # Monte Carlo for Redistricting
-There have been numerous attempts to apply Monte Carlo techniques to quanitfy the process of political redistricting in the United States. Due to the need for extensive optimisation and the lack of a 
+There have been numerous attempts to apply Monte Carlo techniques to quantify the process of political redistricting in the United States. Due to the need for extensive optimisation and the lack of a 
 one size fits all approach, previous methods do not translate well to the UK. In the following project, I have implemented a number of popular techniques to this end, making them applicable to the structure of the UK electoral system. 
 Building upon this, I have created new algorithms that perform better under our system than existing models.
 
@@ -39,7 +39,7 @@ If data relating to OA areas (OAcol and OAframe) is not available, or the user d
 
 ## Running the algorithms
 
-%GIF of all the algorithms running on a map
+%GIF of all the algorithms running on a map - place at the start of each algorithm description. Make the %GIFs from runs given in exampleruns.py, so they can be replicated by the user. 
 %Complete Rodden RoddenWang comparison
 %Check code working RoddenWang and starting points
 
