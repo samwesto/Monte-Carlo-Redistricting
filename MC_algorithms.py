@@ -40,8 +40,8 @@ class RoddenChain:
 			self.method = 'RoddenWang'
 		else:
 			self.method = 'Normal'
-		self.pop_constraint = pop_constraint
-		self.comp_constraint = comp_constraint
+		self.pop_constraint = float(pop_constraint)
+		self.comp_constraint = float(comp_constraint)
 
 
 	def Run(self,maps,con_num):
@@ -49,7 +49,6 @@ class RoddenChain:
 		self.pop_constraint
 		condf = self.condf
 		df = self.df
-		OAframe = self.OAframe
 
 		dist = []
 		no_maps = 0
@@ -86,8 +85,7 @@ class RoddenChain:
 #Creates a new independent map each time
 def RunRalg(self,con_number):
 	int_cons = self.condf.copy()
-	int_df = self.df
-	OAframe = self.OAframe
+	int_df = self.df.copy()
 
 	self.avpop = sum(int_df['All Ages'])/con_number
 
@@ -99,6 +97,7 @@ def RunRalg(self,con_number):
 		for neigh in int_cons['neighbours'][con]: #Find center of each con, then compute distance from these to center of con
 			neighcent.append(concent.distance(int_cons['geometry'][neigh].centroid)) 
 		mergecon = int_cons['neighbours'][con][neighcent.index(min(neighcent))] #Finds the neighbour with the closest geographic distance
+		int_df.loc[int_cons.at[mergecon,'wards'],'constituency'] = int_df['constituency'][int_cons.at[con,'wards'][0]]
 		int_cons.at[con,'wards'] = int_cons.at[con,'wards'] + int_cons.at[mergecon,'wards'] 
 		int_cons.at[[con],'geometry'] = gpd.GeoSeries([int_cons.at[con,'geometry'],int_cons.at[mergecon,'geometry']]).unary_union #Assign new shape to merged int_constituency
 		int_cons = int_cons.drop(mergecon).reset_index(drop=True) #Drop old int_constituency
@@ -177,7 +176,7 @@ def RunRalg(self,con_number):
 				dist2 = jcent.distance(cent)
 				distance.append(dist1-dist2)
 			chosenward = swaps[distance.index(min(distance))]
-			int_df.at[chosenward,'constituency'] == int_df['constituency'][int_cons.at[j,'wards'][0]]
+			int_df.at[chosenward,'constituency'] = int_df['constituency'][int_cons.at[i,'wards'][0]]
 			int_cons.at[i,'wards'] = int_cons.at[i,'wards'] + [chosenward]
 
 
@@ -244,8 +243,8 @@ class FlipSwap:
 			self.relabel = MC.relabel_bynumber
 		else: 
 			self.relabel = MC.relabel_bylocation
-		self.pop_constraint = pop_constraint
-		self.comp_constraint = comp_constraint
+		self.pop_constraint = float(pop_constraint)
+		self.comp_constraint = float(comp_constraint)
 		self.alg_type = alg_type
 
 		number_cons = len(set(df['constituency']))
@@ -426,8 +425,8 @@ class SwendsenWang:
 			self.relabel = MC.relabel_bynumber
 		else: 
 			self.relabel = MC.relabel_bylocation
-		self.pop_constraint = pop_constraint
-		self.comp_constraint = comp_constraint
+		self.pop_constraint = float(pop_constraint)
+		self.comp_constraint = float(comp_constraint)
 
 		number_cons = len(set(df['constituency']))
 		self.avpop = sum(df['All Ages'])/number_cons
