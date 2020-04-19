@@ -39,9 +39,9 @@ If data relating to OA areas (OAcol and OAframe) is not available, or the user d
 
 ## Running the algorithms
 
-%GIF of all the algorithms running on a map - place at the start of each algorithm description. Make the %GIFs from runs given in exampleruns.py, so they can be replicated by the user. 
+<!--GIF of all the algorithms running on a map - place at the start of each algorithm description. Make the %GIFs from runs given in exampleruns.py, so they can be replicated by the user. 
 %Complete Rodden RoddenWang comparison
-%Check code working RoddenWang and starting points
+%Check code working RoddenWang and starting points-->
 
 ### FlipSwap
 
